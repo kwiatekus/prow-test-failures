@@ -3,6 +3,12 @@ $(function () {
   const total = $('#total');
   const tableBody = $('#summary-table tbody');
 
+  function urlParam(name) {
+    var results = new RegExp('[\?&]' + name + '=([^&#]*)')
+                      .exec(window.location.search);
+    return (results !== null) ? results[1] || 0 : false;
+  }
+
   const STATUSES = {
     failed: 'Failed (Retried)',
     running: 'Running',
@@ -18,6 +24,24 @@ $(function () {
 
   function isFailure(build) {
     return build.state === 'failure'
+  }
+
+  function matchType(build) {
+    const type = urlParam('type');
+    if (type){
+      return build.type === type;
+    }
+    return true;
+  }
+
+  function matchLastDays(build) {
+    const lastDays = urlParam('lastDays');
+    if (lastDays){
+      var daysAgo = new Date();
+      daysAgo.setDate(daysAgo.getDate() - parseInt(lastDays));
+      return Date.parse(build.finished) > daysAgo;
+    }
+    return true;
   }
 
   function getBuildLogLink(build) {
@@ -55,10 +79,11 @@ $(function () {
   }
 
   $.getScript("https://status.build.kyma-project.io/data.js?var=allBuilds", function () {
-    const failedIntegrationJobs = allBuilds.filter(isIntegrationJob).filter(isFailure);
+    const failedIntegrationJobs = allBuilds.filter(isIntegrationJob).filter(isFailure).filter(matchType).filter(matchLastDays);
     const links = failedIntegrationJobs.map(getBuildLogLink);
 
     total.text(links.length);
+
 
     links.forEach(async link => {
       fetch(link)
